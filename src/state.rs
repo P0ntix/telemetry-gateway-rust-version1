@@ -1,5 +1,6 @@
 use dashmap::DashMap;
 
+use crate::anomaly::{detect_anomaly, AnomalyType};
 use crate::telemetry::Telemetry;
 
 #[derive(Debug, Default)]
@@ -8,8 +9,15 @@ pub struct WorldState {
 }
 
 impl WorldState {
-    pub fn update(&self, telemetry: Telemetry) {
-        self.drones.insert(telemetry.drone_id as u16, telemetry);
+    pub fn update(&self, telemetry: Telemetry) -> Option<AnomalyType> {
+        let drone_id = telemetry.drone_id as u16;
+        let anomaly = self
+            .drones
+            .get(&drone_id)
+            .and_then(|prev| detect_anomaly(&prev, &telemetry));
+        
+        self.drones.insert(drone_id, telemetry);
+        anomaly
     }
 
     pub fn len(&self) -> usize {

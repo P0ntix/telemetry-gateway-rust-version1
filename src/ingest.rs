@@ -16,7 +16,19 @@ pub async fn start_receiver(tx: UnboundedSender<Telemetry>, state: std::sync::Ar
         let telemetry: Telemetry = postcard::from_bytes(packet)
             .with_context(|| "failed to deserialize telemetry packet")?;
 
-        state.update(telemetry.clone());
+        if let Some(anomaly) = state.update(telemetry.clone()) {
+            tracing::warn!(
+                drone_id = telemetry.drone_id,
+                anomaly_type = ?anomaly,
+                "anomaly detected"
+            );
+        }
+        
+        let drone_count = state.len();
+        if drone_count % 10 == 0 {
+            tracing::debug!(drone_count = drone_count, "tracking drones");
+        }
+        
         tx.send(telemetry)
             .with_context(|| "failed to forward telemetry packet")?;
     }
